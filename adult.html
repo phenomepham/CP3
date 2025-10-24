@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>WIOA Career Pathway Generator</title>
+  <title>WIOA Career Pathway Generator - Adult</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -20,7 +20,7 @@
   <script type="text/babel">
     const { useMemo, useRef, useState, useEffect } = React;
 
-    const STORAGE_KEY = "wioa_pathways_v1";
+    const STORAGE_KEY = "wioa_pathways_v1_adult";
     const loadRecords = () => {
       try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
     };
