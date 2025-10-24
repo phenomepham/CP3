@@ -145,14 +145,27 @@
 
       useEffect(() => { setRecords(loadRecords()); }, []);
 
+      function ensureActivityShape(act) {
+        return {
+          ...act,
+          phase: act.phase || "career",
+          status: act.status || "Planned",
+          comment: act.comment ?? "",
+        };
+      }
+
+      function normalizeActivities(list) {
+        return (list || []).map(ensureActivityShape);
+      }
+
       function mkAct(key, status = "Planned") {
         const lib = ACTIVITY_LIBRARY.find(a => a.key === key);
-        return {
+        return ensureActivityShape({
           id: `${key}-${Math.random().toString(36).slice(2, 8)}`,
           label: lib?.label || "Custom Step",
           phase: lib?.phase || "career",
           status,
-        };
+        });
       }
 
       function addActivityFromLibrary(key) {
@@ -162,7 +175,12 @@
       function addCustomActivity() {
         setActivities(prev => [
           ...prev,
-          { id: `custom-${Math.random().toString(36).slice(2, 8)}`, label: "Custom Step", phase: "career", status: "Planned" },
+          ensureActivityShape({
+            id: `custom-${Math.random().toString(36).slice(2, 8)}`,
+            label: "Custom Step",
+            phase: "career",
+            status: "Planned",
+          }),
         ]);
       }
 
@@ -193,7 +211,7 @@
         };
         activities.forEach(a => base[a.phase].push(a));
         recommendedSupports.forEach((r, idx) => {
-          base[r.phase].push({ id: `rec-${idx}`, label: r.label, phase: r.phase, status: "Planned" });
+          base[r.phase].push({ id: `rec-${idx}`, label: r.label, phase: r.phase, status: "Planned", comment: "" });
         });
         Object.keys(base).forEach(k => {
           base[k] = base[k].sort((a, b) => statusRank(a.status) - statusRank(b.status));
@@ -206,7 +224,7 @@
       }
 
       function exportJSON() {
-        const payload = { participant, barriers, activities, notes };
+        const payload = { participant, barriers, activities: normalizeActivities(activities), notes };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -221,7 +239,7 @@
           const obj = JSON.parse(jsonText);
           if (obj.participant) setParticipant(obj.participant);
           if (obj.barriers) setBarriers(obj.barriers);
-          if (obj.activities) setActivities(obj.activities);
+          if (obj.activities) setActivities(normalizeActivities(obj.activities));
           if (obj.notes) setNotes(obj.notes);
         } catch {
           alert("Invalid JSON");
@@ -236,7 +254,7 @@
           id,
           name,
           savedAt: new Date().toISOString(),
-          data: { participant, barriers, activities, notes },
+          data: { participant, barriers, activities: normalizeActivities(activities), notes },
         };
         const next = records.filter(r => r.id !== id).concat(payload).sort((a,b)=>a.name.localeCompare(b.name));
         setRecords(next);
@@ -249,7 +267,7 @@
         const rec = records.find(r => r.id === id);
         if (!rec) return;
         const { participant: p, barriers: b, activities: a, notes: n } = rec.data;
-        setParticipant(p); setBarriers(b); setActivities(a); setNotes(n);
+        setParticipant(p); setBarriers(b); setActivities(normalizeActivities(a)); setNotes(n);
         setSelectedId(id);
       }
 
@@ -389,7 +407,7 @@
 
                     <div className="space-y-2 max-h-64 overflow-auto pr-1">
                       {activities.map(a => (
-                        <div key={a.id} className="grid grid-cols-12 items-center gap-2 p-2 rounded-md border bg-white">
+                        <div key={a.id} className="grid grid-cols-12 gap-2 p-2 rounded-md border bg-white">
                           <div className="col-span-5">
                             <input className="w-full h-9 px-2 border rounded-md" value={a.label}
                               onChange={e => updateActivity(a.id, { label: e.target.value })}/>
@@ -410,6 +428,15 @@
                           </div>
                           <div className="col-span-1 text-right">
                             <button onClick={() => removeActivity(a.id)} className="px-2 py-1 text-gray-600 hover:text-red-600">×</button>
+                          </div>
+                          <div className="col-span-12">
+                            <textarea
+                              rows="2"
+                              className="w-full px-2 py-1 border rounded-md text-sm"
+                              placeholder="Add a comment or detail for this activity"
+                              value={a.comment ?? ""}
+                              onChange={e => updateActivity(a.id, { comment: e.target.value })}
+                            ></textarea>
                           </div>
                         </div>
                       ))}
@@ -502,6 +529,9 @@
                                 <span>Status: {step.status}</span>
                                 <span>→</span>
                               </div>
+                              {(step.comment ?? "").trim() !== "" && (
+                                <div className="mt-2 text-xs text-gray-700 whitespace-pre-line leading-snug">{step.comment}</div>
+                              )}
                             </div>
                           ))}
                         </div>
