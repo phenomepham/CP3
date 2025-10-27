@@ -142,9 +142,21 @@
 
       // Records state
       const [records, setRecords] = useState([]);
-      const [selectedId, setSelectedId] = useState("");
+      const [selectedSid, setSelectedSid] = useState("");
 
-      useEffect(() => { setRecords(loadRecords()); }, []);
+      useEffect(() => {
+        const raw = loadRecords(); // may be old shape
+        // De-dupe by SID and keep newest savedAt
+        const bySid = new Map();
+        for (const r of raw) {
+          const sid = (r.sid || r.id || "").trim();
+          if (!sid) continue;
+          const prev = bySid.get(sid);
+          if (!prev || new Date(r.savedAt) > new Date(prev.savedAt)) bySid.set(sid, { ...r, sid });
+        }
+        setRecords(Array.from(bySid.values()).sort((a,b)=> (a.name||"").localeCompare(b.name||"")));
+      }, []);
+
 
       function ensureActivityShape(act) {
         return {
@@ -249,37 +261,57 @@
 
       // Save/Load/Delete to localStorage
       function saveToLibrary() {
-        const id = selectedId || crypto.randomUUID();
-        const name = participant.name?.trim() || "Unnamed";
+        const sid = (participant.sid || "").trim();
+        if (!sid) {
+          alert("Please enter an SID before saving.");
+          return;
+        }
+        const name = (participant.name || "").trim() || "Unnamed";
         const payload = {
-          id,
+          sid,
           name,
           savedAt: new Date().toISOString(),
           data: { participant, barriers, activities: normalizeActivities(activities), notes },
         };
-        const next = records.filter(r => r.id !== id).concat(payload).sort((a,b)=>a.name.localeCompare(b.name));
+
+        const exists = records.find(r => r.sid === sid);
+        let next;
+        if (exists) {
+          const ok = confirm(`A pathway already exists for SID "${sid}". Update it with current data?`);
+          if (!ok) return;
+          next = records.map(r => (r.sid === sid ? payload : r));
+        } else {
+          next = records.concat(payload);
+        }
+        next = next.sort((a,b)=> (a.name||"").localeCompare(b.name||""));
+
         setRecords(next);
         saveRecords(next);
-        setSelectedId(id);
-        alert(`Saved pathway for "${name}".`);
+        setSelectedSid(sid);
+        alert(`Saved pathway for "${name}" (SID: ${sid}).`);
       }
 
-      function loadFromLibrary(id) {
-        const rec = records.find(r => r.id === id);
+      function loadFromLibrary(sid) {
+        const rec = records.find(r => r.sid === sid);
         if (!rec) return;
         const { participant: p, barriers: b, activities: a, notes: n } = rec.data;
-        setParticipant(p); setBarriers(b); setActivities(normalizeActivities(a)); setNotes(n);
-        setSelectedId(id);
+        setParticipant(p);
+        setBarriers(b);
+        setActivities(normalizeActivities(a));
+        setNotes(n);
+        setSelectedSid(sid);
+      }
+
       }
 
       function deleteFromLibrary(id) {
-        const rec = records.find(r => r.id === id);
+        const rec = records.find(r => r.sid === sid);
         if (!rec) return;
         if (!confirm(`Delete saved pathway for "${rec.name}"?`)) return;
-        const next = records.filter(r => r.id !== id);
+        const next = records.filter(r => r.sid !== sid);
         setRecords(next);
         saveRecords(next);
-        if (selectedId === id) setSelectedId("");
+        if (selectedId === sid) setSelectedSid("");
       }
 
       return (
@@ -472,26 +504,33 @@
                   <SectionTitle emoji="📚">Library (saved pathways)</SectionTitle>
                   <div className="space-y-2">
                     <div className="flex gap-2 items-center">
-                      <select className="flex-1 h-10 px-3 border rounded-md" value={selectedId}
-                        onChange={e => loadFromLibrary(e.target.value)}>
+                     <select
+                      className="flex-1 h-10 px-3 border rounded-md"
+                      value={selectedSid}
+                      onChange={e => loadFromLibrary(e.target.value)}
+                      >
                         <option value="">— Select a saved pathway —</option>
                         {records.map(r => (
-                          <option key={r.id} value={r.id}>
-                            {r.name} • {new Date(r.savedAt).toLocaleDateString()}
+                          <option key={r.sid} value={r.sid}>
+                            {r.sid} • {r.name} • {new Date(r.savedAt).toLocaleDateString()}
                           </option>
                         ))}
                       </select>
+
                       <button onClick={saveToLibrary} className="px-3 py-2 text-sm rounded-md border bg-white hover:bg-gray-50">
                         Save to Library
                       </button>
-                    </div>
-                    <div className="flex gap-2">
+
+                      ...
+
                       <button
-                        disabled={!selectedId}
-                        onClick={() => deleteFromLibrary(selectedId)}
-                        className="px-3 py-2 text-sm rounded-md border bg-white hover:bg-gray-50 disabled:opacity-50">
+                        disabled={!selectedSid}
+                        onClick={() => deleteFromLibrary(selectedSid)}
+                        className="px-3 py-2 text-sm rounded-md border bg-white hover:bg-gray-50 disabled:opacity-50"
+                      >
                         Delete Selected
                       </button>
+
                     </div>
                     <div className="text-[11px] text-gray-500">
                       Tip: The Library saves to <code>localStorage</code> on this device/browser.
