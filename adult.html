@@ -107,6 +107,7 @@
       const [participant, setParticipant] = useState({
         name: "Client Name",
         age: 20,
+        sid: "",
         population: "Youth (14–24)",
         education: "HS Diploma / GED",
         veteran: false,
@@ -323,6 +324,14 @@
                     <Field label="Name">
                       <input className="w-full h-10 px-3 border rounded-md" value={participant.name}
                         onChange={e => setParticipant({ ...participant, name: e.target.value })}/>
+                    </Field>
+                    <Field label="SID" hint="State ID or inner ID">
+                      <input
+                        className="w-full h-10 px-3 border rounded-md"
+                        placeholder="e.g., NE-123456"
+                        value={participant.sid ?? ""}
+                        onChange={e => setParticipant({ ...participant, sid: e.target.value })}
+                      />
                     </Field>
                     <Field label="Age">
                       <input type="number" className="w-full h-10 px-3 border rounded-md" value={participant.age}
@@ -545,6 +554,7 @@
                         <div className="text-sm font-semibold mb-2">Participant Snapshot</div>
                         <div className="text-xs text-gray-600 space-y-1">
                           <div><strong>Name:</strong> {participant.name}</div>
+                          <div><strong>SID:</strong> {participant.sid || "—"}</div>
                           <div><strong>Population:</strong> {participant.population} • <strong>Age:</strong> {participant.age}</div>
                           <div><strong>Education:</strong> {participant.education} • <strong>Veteran:</strong> {participant.veteran ? "Yes" : "No"}</div>
                         </div>
